@@ -15,12 +15,7 @@ connectDb();
 //Middlewares authentication authorization
 app.use(json());
 app.use(urlencoded({ extended: true }));
-app.use(
-  cors({
-    origin: ORIGIN,
-    credentials: true,
-  }),
-);
+app.use(cors());
 
 app.use("/api/v1/user", userRoute);
 app.use("/api/v1/hackathon", hackathonRoute);
