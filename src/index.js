@@ -3,6 +3,7 @@ import userRoute from "./routes/user.route.js";
 import { config } from "dotenv";
 import cors from "cors";
 import { connectDb } from "./utils/connectDb.js";
+import hackathonRoute from "./routes/hackathon.route.js";
 
 config({ path: "./.env" });
 const app = express();
@@ -22,6 +23,7 @@ app.use(
 );
 
 app.use("/api/v1/user", userRoute);
+app.use("/api/v1/hackathon", hackathonRoute);
 
 app.listen(8080, () => {
   console.log("Server is running on port 8080");

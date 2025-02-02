@@ -1,5 +1,5 @@
-import { ProblemStatementModel } from "../models/problemStatement.model";
-const getProblemStatements = async (req, res) => {
+import { ProblemStatementModel } from "../models/problemStatement.model.js";
+export const getProblemStatements = async (req, res) => {
   try {
     const problemStatements = ProblemStatementModel.find();
     return res.status(200).json({
