@@ -1,10 +1,10 @@
 import { ProblemStatementModel } from "../models/problemStatement.model.js";
 export const getProblemStatements = async (req, res) => {
   try {
-    const problemStatements = ProblemStatementModel.find();
+    const problemStatements = await ProblemStatementModel.find();
     return res.status(200).json({
       msg: "Problem Statements fetched successfully",
-      data: problemStatements, // [{}, {}]
+      data: problemStatements,
     });
   } catch (err) {
     console.log(err);
