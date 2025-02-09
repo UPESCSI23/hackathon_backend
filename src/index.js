@@ -5,7 +5,7 @@ import cors from "cors";
 import { connectDb } from "./utils/connectDb.js";
 import hackathonRoute from "./routes/hackathon.route.js";
 
-config({ path: "./.env" });
+config();
 const app = express();
 const PORT = process.env.PORT || 8080;
 const ORIGIN = process.env.ORIGIN || "http://localhost:3000";
@@ -23,3 +23,4 @@ app.use("/api/v1/hackathon", hackathonRoute);
 app.listen(8080, () => {
   console.log("Server is running on port 8080");
 });
+

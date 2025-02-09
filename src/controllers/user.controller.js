@@ -1,49 +1,86 @@
-const User = require("../models/user.model.js");
-const jwt = require("jsonwebtoken");
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "1d" });
-};
+import { UserModel } from "../models/user.model.js";
+import { generateAccessAndRefreshToken } from "../utils/generateToken.js";
 
 //signup
-exports.signup = async (req, res) => {
+export const signup = async (req, res) => {
+  const { fullName, email, password } = req.body;
   try {
-      const { name, email, password } = req.body;
+    const existingUser = await UserModel.findOne({ email });
 
-      //Checking user already exists
-      let user = await User.findOne({ email });
-      if (user) return res.status(400).json({ message: "User already exists" });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+    console.log(existingUser);
 
-      //User Create
-      user = new User({ name, email, password });
-      await user.save();
+    const newUser = await UserModel.create({
+      fullName,
+      email,
+      password,
+    });
 
-      //Token Generate
-      const token = generateToken(user._id);
+    const createdUser = await UserModel.findById(newUser._id).select(
+      "-password -refreshToken",
+    );
 
-      res.status(201).json({ message: "User registered successfully", token });
-  } catch (error) {
-      res.status(500).json({ message: error.message });
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+      newUser._id,
+    );
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    return res
+      .status(201)
+      .cookie("refreshToken", accessToken, options)
+      .cookie("accessToken", refreshToken, options)
+      .json({ message: "User created successfully", user: createdUser });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
 };
 
-// Signin
-exports.signin = async (req, res) => {
+export const signin = async (req, res) => {
+  const { email, password } = req.body;
   try {
-      const { email, password } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "email is required" });
+    }
 
-      //user exists check
-      const user = await User.findOne({ email });
-      if (!user) return res.status(400).json({ message: "Invalid email or password" });
+    const existingUser = await UserModel.findOne({ email });
 
-      //password check
-      const isMatch = await user.comparePassword(password);
-      if (!isMatch) return res.status(400).json({ message: "Invalid email or password" });
+    if (!existingUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-      // Generate JWT Token
-      const token = generateToken(user._id);
+    const isPasswordCorrect = await existingUser.comparePassword(password);
+    console.log(isPasswordCorrect);
 
-      res.json({ message: "Login successful", token });
-  } catch (error) {
-      res.status(500).json({ message: error.message });
+    if (!isPasswordCorrect) {
+      return res.status(400).json({ message: "Invalid password" });
+    }
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+      existingUser._id,
+    );
+
+    const loggedInUser = await UserModel.findById(existingUser._id).select(
+      "-password -refreshToken",
+    );
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json({ message: "User logged in successfully", user: loggedInUser });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
 };
+
