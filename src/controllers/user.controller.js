@@ -1,7 +1,6 @@
 import { UserModel } from "../models/user.model.js";
 import { generateAccessAndRefreshToken } from "../utils/generateToken.js";
 
-//signup
 export const signup = async (req, res) => {
   const { fullName, email, password } = req.body;
   try {
@@ -10,7 +9,6 @@ export const signup = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
-    console.log(existingUser);
 
     const newUser = await UserModel.create({
       fullName,
@@ -28,13 +26,20 @@ export const signup = async (req, res) => {
 
     const options = {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000,
+    };
+
+    const refreshOptions = {
+      ...options,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     };
 
     return res
       .status(201)
-      .cookie("refreshToken", accessToken, options)
-      .cookie("accessToken", refreshToken, options)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, refreshOptions)
       .json({ message: "User created successfully", user: createdUser });
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -45,7 +50,7 @@ export const signin = async (req, res) => {
   const { email, password } = req.body;
   try {
     if (!email) {
-      return res.status(400).json({ message: "email is required" });
+      return res.status(400).json({ message: "Email is required" });
     }
 
     const existingUser = await UserModel.findOne({ email });
@@ -71,16 +76,64 @@ export const signin = async (req, res) => {
 
     const options = {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000,
+    };
+
+    const refreshOptions = {
+      ...options,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     };
 
     return res
       .status(200)
       .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", refreshToken, options)
+      .cookie("refreshToken", refreshToken, refreshOptions)
       .json({ message: "User logged in successfully", user: loggedInUser });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
 };
 
+export const refreshToken = async (req, res) => {
+  const { refreshToken } = req.cookies;
+
+  if (!refreshToken) {
+    return res.status(401).json({ message: "No refresh token provided" });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+
+    const user = await UserModel.findById(decoded._id);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    const { accessToken, newRefreshToken } =
+      await generateAccessAndRefreshToken(user._id);
+
+    // Set the new access token as a cookie
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    };
+
+    const refreshOptions = {
+      ...options,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    };
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newRefreshToken, refreshOptions)
+      .json({ message: "Token refreshed successfully" });
+  } catch (error) {
+    return res
+      .status(401)
+      .json({ message: "Invalid or expired refresh token" });
+  }
+};
